@@ -1,1 +1,3 @@
 # videoqa-inference
+
+use qwen
