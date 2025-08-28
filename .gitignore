@@ -210,3 +210,4 @@ __marimo__/
 #apptainer
 
 *.sif
+unsloth_compiled_cache/

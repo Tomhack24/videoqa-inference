@@ -1,0 +1,9 @@
+[project]
+name = "videoqa-inference"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "unsloth>=2025.8.9",
+]
