@@ -1,3 +1,3 @@
 # videoqa-inference
 
-use qwen
+use qwen with unsloth for inferencing videoQA
