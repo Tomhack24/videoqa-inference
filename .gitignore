@@ -211,3 +211,5 @@ __marimo__/
 
 *.sif
 unsloth_compiled_cache/
+
+video/
