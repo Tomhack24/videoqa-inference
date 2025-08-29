@@ -1,26 +1,41 @@
+import os
+import json
+import glob
+
 from unsloth import FastVisionModel # FastLanguageModel for LLMs
+from PIL import Image
 import torch
 
-# 4bit pre quantized models we support for 4x faster downloading + no OOMs.
-fourbit_models = [
-    "unsloth/Llama-3.2-11B-Vision-Instruct-bnb-4bit", # Llama 3.2 vision support
-    "unsloth/Llama-3.2-11B-Vision-bnb-4bit",
-    "unsloth/Llama-3.2-90B-Vision-Instruct-bnb-4bit", # Can fit in a 80GB card!
-    "unsloth/Llama-3.2-90B-Vision-bnb-4bit",
+image_001_path = "./data/image/001"
+pattern = os.path.join(image_001_path, "frame_*.jpg")
+image_paths = glob.glob(pattern)
+image_paths.sort()
 
-    "unsloth/Pixtral-12B-2409-bnb-4bit",              # Pixtral fits in 16GB!
-    "unsloth/Pixtral-12B-Base-2409-bnb-4bit",         # Pixtral base model
-
-    "unsloth/Qwen2-VL-2B-Instruct-bnb-4bit",          # Qwen2 VL support
-    "unsloth/Qwen2-VL-7B-Instruct-bnb-4bit",
-    "unsloth/Qwen2-VL-72B-Instruct-bnb-4bit",
-
-    "unsloth/llava-v1.6-mistral-7b-hf-bnb-4bit",      # Any Llava variant works!
-    "unsloth/llava-1.5-7b-hf-bnb-4bit",
-] # More models at https://huggingface.co/unsloth
+list_of_images = [Image.open(p) for p in image_paths]
 
 model, tokenizer = FastVisionModel.from_pretrained(
-    "unsloth/Qwen2.5-VL-7B-Instruct-bnb-4bit",
+    "unsloth/Qwen2.5-VL-7B-Instruct-unsloth-bnb-4bit",
     load_in_4bit = True, # Use 4bit to reduce memory use. False for 16bit LoRA.
     use_gradient_checkpointing = "unsloth", # True or "unsloth" for long context
 )
+
+FastVisionModel.for_inference(model)
+
+messages = [
+    {"role": "user", "content": [
+        *map(lambda img: {"type": "image"}, list_of_images[::30]),
+        {"type": "text", "text": "explain this images"}
+    ]}
+]
+input_text = tokenizer.apply_chat_template(messages, add_generation_prompt = True)
+inputs = tokenizer(
+    list_of_images[::30],
+    input_text,
+    add_special_tokens = False,
+    return_tensors = "pt",
+).to("cuda")
+
+generated_ids = model.generate(**inputs, max_new_tokens=10)
+decoded_text = tokenizer.batch_decode(generated_ids, skip_special_tokens=False)[0]
+
+print(decoded_text)

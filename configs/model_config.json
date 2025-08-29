@@ -1,0 +1,8 @@
+{
+    "model_name": "unsloth/Qwen2.5-VL-32B-Instruct-unsloth-bnb-4bit",
+    "generation_config": {
+        "temperature": 0.7,
+        "top_p": 0.9,
+        "max_new_tokens": 512
+    }
+}
