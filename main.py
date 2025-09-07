@@ -32,21 +32,43 @@ model, tokenizer = FastVisionModel.from_pretrained(
 )
 
 FastVisionModel.for_inference(model)
+messages = [
+    {"role": "user", "content": [
+        {"type": "text", "text": "Describe the video."},
+        {"type": "image", "image": "images/0001/frame_000.jpg"},
+    ]
+}]
 
-for batch in test_dataloader:
-    messages = convert_to_messages(
-        images=batch["images"],
-        question=batch["questions"],
-        answer=batch["answers"] if "answers" in batch else None
-    )
+input_text = tokenizer.apply_chat_template(messages, add_generation_prompt=True)
+inputs = tokenizer(
+    [["images/0001/frame_000.jpg"]],
+    input_text,
+    add_special_tokens=False,
+    return_tensors="pt",
+).to("cuda")
+generated_ids = model.generate(**inputs, max_new_tokens=10)
+decoded_text = tokenizer.batch_decode(generated_ids, skip_special_tokens=False)[0]
+print(decoded_text)
 
-    input_text = tokenizer.apply_chat_template(messages, add_generation_prompt=True)
-    inputs = tokenizer(
-        batch["images"],
-        input_text,
-        add_special_tokens=False,
-        return_tensors="pt",
-    ).to("cuda")
-    generated_ids = model.generate(**inputs, max_new_tokens=10)
-    decoded_text = tokenizer.batch_decode(generated_ids, skip_special_tokens=False)[0]
-    print(decoded_text)
+
+# for batch in test_dataloader:
+#     messages = convert_to_messages(
+#         images=batch["images"],
+#         question=batch["questions"],
+#         answer=batch["answers"] if "answers" in batch else None
+#     )
+#     print("----")
+#     print(messages)
+
+#     print("\n----\n")
+
+#     input_text = tokenizer.apply_chat_template(messages, add_generation_prompt=True)
+#     inputs = tokenizer(
+#         batch["images"],
+#         input_text,
+#         add_special_tokens=False,
+#         return_tensors="pt",
+#     ).to("cuda")
+#     generated_ids = model.generate(**inputs, max_new_tokens=10)
+#     decoded_text = tokenizer.batch_decode(generated_ids, skip_special_tokens=False)[0]
+#     print(decoded_text)
