@@ -4,9 +4,13 @@ import numpy as np
 import pandas as pd
 import glob
 from PIL import Image
+from torchvision import transforms
 import os
+import cv2
 # ...existing code...
 
+VIDEO_DIR = "./data/video"
+FPS = 0.5
 PROMPT_PATH = "./prompts/prompt_inference.txt"
 with open(PROMPT_PATH, "r") as f:
     PROMPT = f.read()
@@ -31,53 +35,44 @@ def set_seed(seed):
 def process_text(text):
     pass
 
-# class DiscourseVideoQADataset(torch.utils.data.Dataset):
-#     def __init__(self, df_path, image_transform=None, answer=True):
-#         # self.transform = image_transform
-#         self.df = pd.read_json(df_path, lines=True)
-#         self.answer = answer #boolean
+def extract_frames_from_video(video_path, fps=FPS):
+    """
+    mp4からフレームを抽出してPIL.Imageのリストを返す
+    """
+    cap = cv2.VideoCapture(video_path)
+    video_fps = cap.get(cv2.CAP_PROP_FPS)
+    interval = int(video_fps / fps)
+
+    frames = []
+    idx = 0
+    while cap.isOpened():
+        ret, frame = cap.read()
+        if not ret:
+            break
+        if idx % interval == 0:
+            # OpenCV: BGR → RGB
+            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            pil_img = Image.fromarray(frame)
+            frames.append(pil_img)
+        idx += 1
+    cap.release()
+    return frames
 
 
-#     def __len__(self):
-#         return len(self.df)
-
-#     def __getitem__(self, idx):
-
-#         image_paths = [f"{self.df['images_dir'][idx]}/{frame}" for frame in self.df['frames'][idx]]
-#         question = self.df['question'][idx]
-#         answer = self.df['answer'][idx] if self.answer else None
-
-#         if self.answer:
-#             return {
-#                 "images_path": image_paths  ,
-#                 "question": question,
-#                 "answer": answer
-#             }
-#         else:
-#             return {
-#                 "images_path": image_paths,
-#                 "question": question
-#             }
-
-# ...existing code...
-
-
-# ...existing code...
 
 class DiscourseVideoQADataset(torch.utils.data.Dataset):
-    def __init__(self, df_path, image_transform=None, answer=True):
-        # self.transform = image_transform
+    def __init__(self, df_path, answer=True, image_transform=None,):
+        
         self.df = pd.read_json(df_path, lines=True)
-        self.answer = answer #boolean
+        self.answer = answer 
         self.image_transform = image_transform
 
         self.samples = []
         for _, row in self.df.iterrows():
-            images_dir = row['images_dir']
-            image_paths = [os.path.join(images_dir, f) for f in row['frames']]
+
             for qa in row['qa_pairs']:
                 self.samples.append({
-                    "images_path": image_paths,
+                    "video_id": row.get("video_id"),
                     "question": qa.get("question"),
                     "answer": qa.get("answer") if self.answer else None,
                     "evidence" : qa.get("evidence") if self.answer else None,
@@ -90,9 +85,13 @@ class DiscourseVideoQADataset(torch.utils.data.Dataset):
 
     def __getitem__(self, idx):
         sample = self.samples[idx]
+        frames = extract_frames_from_video(f"{VIDEO_DIR}/{sample['video_id']}.mp4", fps=FPS)
 
+        if self.image_transform:
+            frames = [self.image_transform(img) for img in frames]
+            
         out = {
-            "images": sample["images_path"],  
+            "images": frames,  
             "question": sample["question"]
         }
 
@@ -146,18 +145,19 @@ def convert_to_messages(images, question, answer=None):
 
 
 if __name__ == "__main__":
+
+
     dataset = DiscourseVideoQADataset(
         df_path="./data/dataset.jsonl",
-        image_transform=None,
         answer=True
     )
-    print(len(dataset))
 
-    dataloader = torch.utils.data.DataLoader(
+    test_dataloader = torch.utils.data.DataLoader(
         dataset=dataset,
         batch_size=2,
         shuffle=False,
         collate_fn=custom_collate_fn
     )
-    batch = next(iter(dataloader))
-    print(batch)
+
+    for batch in test_dataloader:
+        print(batch)
